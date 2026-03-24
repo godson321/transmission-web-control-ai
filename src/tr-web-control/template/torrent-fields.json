@@ -7,6 +7,7 @@
 		,{"field":"remainingTime","width":"100","align":"right","sortable":true, "formatter": "remainingTime"}
 		,{"field":"uploadRatio","width":"60","align":"right","sortable":"true","formatter":"ratio"}
 		,{"field":"status","width":"60","align":"center","sortable":"true"}
+		,{"field":"errorInfo","width":"220","align":"left","formatter":"errorInfo"}
 		,{"field":"statusCode","hidden":"true","allowCustom":"false"}
 		,{"field":"seederCount","width":"60","align":"left"}
 		,{"field":"leecherCount","width":"60","align":"left"}

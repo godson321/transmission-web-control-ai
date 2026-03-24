@@ -4,7 +4,7 @@ system.config = $.extend(system.config, {
 	// Automatic refresh rate (ms)
 	reloadStep: 5000,
 	// The default num of entries for each page
-	pageSize: 200,
+	pageSize: 100,
 	// Enable/disable pagination for torrentlist.datagrid
 	pagination: true,
 	// Options in torrentlist.datagrid PageList

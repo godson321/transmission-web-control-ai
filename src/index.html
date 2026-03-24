@@ -29,13 +29,13 @@
 	<script type="text/javascript" src="tr-web-control/script/plugins/jquery.webui-popover.min.js"></script>
 	<!-- -->
 	<!-- System class library -->
-	<script type="text/javascript" src="tr-web-control/script/min/FileSaver.min.js?v=20200914"></script>
+	<script type="text/javascript" src="tr-web-control/script/FileSaver.js?v=20200914"></script>
 	<script type="text/javascript" src="tr-web-control/script/other/clipboard.min.js"></script>
-	<script type="text/javascript" src="tr-web-control/script/min/public.min.js?v=20200914"></script>
+	<script type="text/javascript" src="tr-web-control/script/public.js?v=20200914"></script>
 	<script type="text/javascript" src="tr-web-control/script/other/ua-parser.min.js?v=20200914"></script>
-	<script type="text/javascript" src="tr-web-control/script/min/transmission.min.js?v=20200914"></script>
-	<script type="text/javascript" src="tr-web-control/script/min/transmission.torrents.min.js?v=20201001"></script>
-	<script type="text/javascript" src="tr-web-control/script/min/system.min.js?v=20201001"></script>
+	<script type="text/javascript" src="tr-web-control/script/transmission.js?v=20200914"></script>
+	<script type="text/javascript" src="tr-web-control/script/transmission.torrents.js?v=20201001"></script>
+	<script type="text/javascript" src="tr-web-control/script/system.js?v=20201001"></script>
 	<script type="text/javascript" src="tr-web-control/config.js?v=20200914"></script>
 	<script type="text/javascript" src="tr-web-control/plugin.js?v=20200914"></script>
 	<script type="text/javascript">
@@ -51,7 +51,7 @@
 		<div id="m_top" data-options="region:'north'">
 			<div class="easyui-layout" data-options="fit:true">
 				<div id="m_title_layout" data-options="region:'center'" border="0">
-					<img id="logo" src="tr-web-control/logo.png" width="180" height="50"/><span id="m_title" style="padding:10px;display:none;"></span>
+					<img id="logo" src="tr-web-control/logo.png" /><span id="m_title" style="padding:10px;display:none;"></span>
 					<span id="area-update-infos" style="display:none;padding: 13px;position: absolute;background-color: #ffe48c;">
 						<span id="msg-updateInfos" style="color:#ff3232;"></span>
 						<a id="button-download-update" href="" class="easyui-linkbutton"
@@ -125,6 +125,9 @@
 					<!-- 设置下载目录 -->
 					<a id="toolbar_changeDownloadDir" href="javascript:void(0);" class="easyui-linkbutton"
 						data-options="iconCls:'iconfont tr-icon-folder-change',plain:true,disabled:true"></a>
+					<a id="toolbar_batchRename" href="javascript:void(0);" class="easyui-linkbutton"
+						data-options="iconCls:'iconfont tr-icon-fileoutline',plain:true,disabled:true"
+						system-tip-lang="toolbar.tip['batch-rename']"></a>
 					<!-- 设置上传下载限制 -->
 					<a id="toolbar_changeSpeedLimit" href="javascript:void(0);" class="easyui-linkbutton"
 					data-options="iconCls:'iconfont tr-icon-speedlimit',plain:true,disabled:true"></a>

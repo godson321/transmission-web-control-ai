@@ -172,6 +172,13 @@ html, body {
 	color:#cc9900;
 }
 
+.torrent-error-info {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .iconlabel{
 	display:inline-block;
 	width:auto;height:16px;padding-left:19px;
@@ -336,14 +343,33 @@ html, body {
 	text-decoration: none;
 }
 
+.torrent-labels {
+	position: relative;
+	padding-right: 24px;
+	min-height: 18px;
+}
+
 .user-label-set {
 	position: absolute;
 	right: 0;
 }
 
-.user-label-set .l-btn-text {
+.user-label-set-trigger {
+	border: 1px solid #d0d0d0;
+	background: #f7f7f7;
+	border-radius: 2px;
+	height: 18px;
 	line-height: 16px;
-	margin: 0 3px;
+	padding: 0 4px;
+	cursor: pointer;
+}
+
+.user-label-set-trigger:hover {
+	background: #efefef;
+}
+
+.user-label-set-trigger .iconfont {
+	font-size: 12px;
 }
 
 .tree-title {

@@ -1,6 +1,7 @@
 // Torrent related information
 transmission.torrents = {
 	all: null,
+	allList: null,
 	puased: null,
 	downloading: null,
 	actively: null,
@@ -91,9 +92,7 @@ transmission.torrents = {
 		this.warning = new Array();
 		this.btItems = new Array();
 		// All download directories used by current torrents
-		if (transmission.downloadDirs == undefined){
-			transmission.downloadDirs = new Array();
-		}
+		transmission.downloadDirs = new Array();
 
 		var _Status = transmission._status;
 		this.status = {};
@@ -101,8 +100,11 @@ transmission.torrents = {
 		this.totalSize = 0;
 		this.folders = {};
 		this.count = 0;
+		this.allList = [];
 
 		var B64 = new Base64();
+		var removedMap = {};
+		var downloadDirMap = {};
 
 		// Merge two numbers
 		for (var index in this.recently) {
@@ -116,6 +118,7 @@ transmission.torrents = {
 		for (var index in this.removed) {
 			var item = this.removed[index];
 			removed.push(item);
+			removedMap[item] = true;
 		}
 
 		// Torrents are classified
@@ -124,7 +127,7 @@ transmission.torrents = {
 			if (!item) {
 				return;
 			}
-			if ($.inArray(item.id, removed) != -1 && removed.length > 0) {
+			if (removedMap[item.id]) {
 				if (this.all[item.id]) {
 					this.all[item.id] = null;
 					delete this.all[item.id];
@@ -146,6 +149,8 @@ transmission.torrents = {
 			// 转为数值
 			item.uploadRatio = parseFloat(item.uploadRatio);
 			item.infoIsLoading = false;
+			item.completeSize = Math.max(0, item.totalSize - item.leftUntilDone);
+			item.statusCode = item.status;
 			var type = this.status[item.status];
 			this.addTracker(item);
 			if (!type) {
@@ -189,9 +194,11 @@ transmission.torrents = {
 			}
 
 			this.all[item.id] = item;
+			this.allList.push(item);
 
 			// Set the directory
-			if ($.inArray(item.downloadDir, transmission.downloadDirs) == -1) {
+			if (item.downloadDir && !downloadDirMap[item.downloadDir]) {
+				downloadDirMap[item.downloadDir] = true;
 				transmission.downloadDirs.push(item.downloadDir);
 			}
 
@@ -238,6 +245,8 @@ transmission.torrents = {
 	addTracker: function(item) {
 		var trackerStats = item.trackerStats;
 		var trackers = [];
+		var trackerNameMap = {};
+		var collectTrackerTree = transmission.options.getTarckers === true;
 
 		item.leecherCount = 0;
 		item.seederCount = 0;
@@ -249,61 +258,65 @@ transmission.torrents = {
 				var lastResult = trackerInfo.lastAnnounceResult.toLowerCase();
 				var hostName = trackerInfo.host.getHostName();
 				var trackerUrl = hostName.split(".");
-				if ($.inArray(trackerUrl[0], "www,tracker,announce".split(",")) != -1) {
+				if ($.inArray(trackerUrl[0], "www,tracker".split(",")) != -1) {
 					trackerUrl.shift();
 				}
 
 				var name = trackerUrl.join(".");
-				var id = "tracker-" + name.replace(/\./g, "-");
-				var tracker = transmission.trackers[id];
-				if (!tracker) {
-					transmission.trackers[id] = {
-						count: 0,
-						torrents: new Array(),
-						size: 0,
-						connected: true,
-						isBT: (trackerStats.length>5)
-					};
+				var tracker = null;
+				if (collectTrackerTree) {
+					var id = "tracker-" + name.replace(/\./g, "-");
 					tracker = transmission.trackers[id];
+					if (!tracker) {
+						transmission.trackers[id] = {
+							count: 0,
+							torrents: new Array(),
+							size: 0,
+							connected: true,
+							isBT: (trackerStats.length>5),
+							lastTorrentId: null
+						};
+						tracker = transmission.trackers[id];
+					}
+
+					tracker["name"] = name;
+					tracker["nodeid"] = id;
+					tracker["host"] = trackerInfo.host;
 				}
 
-				tracker["name"] = name;
-				tracker["nodeid"] = id;
-				tracker["host"] = trackerInfo.host;
-
-				// 判断当前tracker状态
 				if (!trackerInfo.lastAnnounceSucceeded && trackerInfo.announceState != transmission._trackerStatus.inactive) {
 					warnings.push(trackerInfo.lastAnnounceResult);
 
-					if (lastResult == "could not connect to tracker") {
+					if (tracker && lastResult == "could not connect to tracker") {
 						tracker.connected = false;
 					}
 				}
 
-				if (tracker.torrents.indexOf(item)==-1) {
+				if (tracker && tracker.lastTorrentId !== item.id) {
+					tracker.lastTorrentId = item.id;
 					tracker.torrents.push(item);
 					tracker.count++;
 					tracker.size += item.totalSize;
 				}
-				
+
 				item.leecherCount += trackerInfo.leecherCount;
 				item.seederCount += trackerInfo.seederCount;
-				if (trackers.indexOf(name)==-1) {
+				if (!trackerNameMap[name]) {
+					trackerNameMap[name] = true;
 					trackers.push(name);
 				}
 			}
 
-			if (trackerStats.length>5) {
+			if (collectTrackerTree && trackerStats.length>5) {
 				this.btItems.push(item);
 			}
 
 			if (warnings.length == trackerStats.length) {
-				if ((warnings.join(";")).replace(/;/g,"") == ""){
+				if ((warnings.join(";")).replace(/;/g,"") == "") {
 					item["warning"] = "";
 				} else {
 					item["warning"] = warnings.join(";");
 				}
-				// 设置下次更新时间
 				if (!item["nextAnnounceTime"])
 					item["nextAnnounceTime"] = trackerInfo.nextAnnounceTime;
 				else if (item["nextAnnounceTime"] > trackerInfo.nextAnnounceTime)
@@ -320,7 +333,7 @@ transmission.torrents = {
 			item.trackers = trackers.join(";");
 		}
 	},
-	// 获取下载者和做种者数量测试
+	// ?????????????
 
 	getPeers: function(ids) {
 		transmission.exec({
@@ -399,12 +412,19 @@ transmission.torrents = {
 	getErrorIds: function(ignore, needUpdateOnly) {
 		var result = new Array();
 		var now = new Date();
+		var ignoreMap = null;
 		if (needUpdateOnly == true) {
 			now = now.getTime() / 1000;
 		}
+		if (ignore && ignore.length > 0) {
+			ignoreMap = {};
+			for (var i = 0; i < ignore.length; i++) {
+				ignoreMap[ignore[i]] = true;
+			}
+		}
 		for (var index in this.error) {
 			var item = this.error[index];
-			if ($.inArray(item.id, ignore) != -1 && ignore.length > 0) {
+			if (ignoreMap && ignoreMap[item.id]) {
 				continue;
 			}
 			if (needUpdateOnly == true) {
@@ -424,7 +444,7 @@ transmission.torrents = {
 
 		for (var index in this.warning) {
 			var item = this.warning[index];
-			if ($.inArray(item.id, ignore) != -1 && ignore.length > 0) {
+			if (ignoreMap && ignoreMap[item.id]) {
 				continue;
 			}
 
@@ -442,59 +462,144 @@ transmission.torrents = {
 	// 查找并替換 Tracker
 
 	searchAndReplaceTrackers: function(oldTracker, newTracker, callback) {
+		oldTracker = $.trim(oldTracker || "");
+		newTracker = $.trim(newTracker || "");
 		if (!oldTracker || !newTracker) {
 			return;
 		}
+
+		function normalizeTracker(value) {
+			return $.trim(value || "").toLowerCase().replace(/\/+$/g, "");
+		}
+
+		function getTrackerHost(value) {
+			value = $.trim(value || "").toLowerCase();
+			if (!value) {
+				return "";
+			}
+			if (value.indexOf("://") != -1) {
+				return value.getHostName().toLowerCase();
+			}
+			return value.split("/")[0];
+		}
+
+		var normalizedOld = normalizeTracker(oldTracker);
+		var useExactMatch = normalizedOld.indexOf("://") != -1;
+		var oldHost = (useExactMatch ? "" : getTrackerHost(normalizedOld));
 		var result = {};
-		var count = 0;
+		var totalTorrents = 0;
 		for (var index in this.all) {
 			var item = this.all[index];
 			if (!item) {
-				return;
+				continue;
 			}
-			var trackerStats = item.trackerStats;
+			var trackerStats = item.trackerStats || [];
 			for (var n in trackerStats) {
 				var tracker = trackerStats[n];
-				if (tracker.announce == oldTracker) {
-					if (!result[n]) {
-						result[n] = {
-							ids: new Array(),
-							tracker: newTracker
-						};
-					}
-					result[n].ids.push(item.id);
-					count++;
+				var announce = tracker.announce || "";
+				var normalizedAnnounce = normalizeTracker(announce);
+				var matched = false;
+				if (useExactMatch) {
+					matched = (normalizedAnnounce == normalizedOld);
+				} else {
+					matched = (getTrackerHost(announce) == oldHost || normalizedAnnounce == normalizedOld);
 				}
+				if (!matched) {
+					continue;
+				}
+				var trackerId = tracker.id;
+				if (trackerId == undefined || trackerId == null) {
+					continue;
+				}
+				if (!result[trackerId]) {
+					result[trackerId] = {
+						ids: new Array(),
+						tracker: newTracker
+					};
+				}
+				result[trackerId].ids.push(item.id);
+				totalTorrents++;
 			}
 		}
 
-		if (count == 0) {
-			if (callback) {
-				callback(null, 0);
-			}
+		var groups = [];
+		for (var key in result) {
+			groups.push({
+				trackerId: parseInt(key, 10),
+				ids: uniq(result[key].ids),
+				tracker: result[key].tracker
+			});
 		}
-		for (var index in result) {
-			transmission.exec({
-				method: "torrent-set",
-				arguments: {
-					ids: result[index].ids,
-					trackerReplace: [parseInt(index), result[index].tracker]
-				}
-			}, function(data, tags) {
-				if (data.result == "success") {
-					if (callback) {
-						callback(tags, count);
+
+		if (groups.length == 0) {
+			if (callback) {
+				callback({
+					status: "empty",
+					totalGroups: 0,
+					completedGroups: 0,
+					totalTorrents: 0,
+					completedTorrents: 0,
+					ids: []
+				});
+			}
+			return;
+		}
+
+		var pendingGroups = groups.length;
+		var completedGroups = 0;
+		var completedTorrents = 0;
+		var finishedIds = [];
+		var failed = false;
+		var firstError = "";
+
+		for (var i = 0; i < groups.length; i++) {
+			(function(group) {
+				transmission.exec({
+					method: "torrent-set",
+					arguments: {
+						ids: group.ids,
+						trackerReplace: [group.trackerId, group.tracker]
 					}
-				} else {
-					if (callback) {
-						callback(null);
+				}, function(data) {
+					pendingGroups--;
+					if (data.result == "success") {
+						completedGroups++;
+						completedTorrents += group.ids.length;
+						finishedIds = finishedIds.concat(group.ids);
+						if (callback) {
+							callback({
+								status: "progress",
+								totalGroups: groups.length,
+								completedGroups: completedGroups,
+								totalTorrents: totalTorrents,
+								completedTorrents: completedTorrents,
+								ids: group.ids
+							});
+						}
+					} else {
+						failed = true;
+						if (!firstError) {
+							firstError = data.result || "error";
+						}
 					}
-				}
-			}, result[index].ids);
+
+					if (pendingGroups == 0 && callback) {
+						callback({
+							status: (failed ? "error" : "done"),
+							totalGroups: groups.length,
+							completedGroups: completedGroups,
+							totalTorrents: totalTorrents,
+							completedTorrents: completedTorrents,
+							ids: uniq(finishedIds),
+							errorMessage: firstError
+						});
+					}
+				});
+			})(groups[i]);
 		}
 	},
 	
-	// 获取磁力链接
+	// ?????????
 	getMagnetLink: function(ids, callback){
 		var result = "";
 		// is single number

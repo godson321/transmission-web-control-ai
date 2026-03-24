@@ -19,6 +19,12 @@
 				<tr>
 					<td colspan="2"><hr/></td>
 				</tr>
+				<tr id="replaceTracker-progress-row" style="display:none;">
+					<td colspan="2">
+						<div id="replaceTracker-progressbar" class="easyui-progressbar" style="width:100%;"></div>
+						<div id="replaceTracker-progress-text" style="margin-top:6px;color:#666;"></div>
+					</td>
+				</tr>
 			</table>
 		</div>
 	</div>  
@@ -62,25 +68,52 @@
 				var icon = button.linkbutton("options").iconCls;
 				button.linkbutton({disabled:true,iconCls:"icon-loading"});
 				// 开始设置参数
+				var progressRow = thisDialog.find("#replaceTracker-progress-row").show();
+				var progressbar = thisDialog.find("#replaceTracker-progressbar");
+				var progressText = thisDialog.find("#replaceTracker-progress-text");
+				progressbar.progressbar({value:0});
+				progressText.text("0 / 0");
+				thisDialog.find("#replaceTracker-button-cancel").linkbutton({disabled:true});
 				transmission.torrents.searchAndReplaceTrackers(
 					oldValue
 					,newValue
-					,function(ids,count){
-						button.linkbutton({iconCls:icon,disabled:false});
-						if (count==0)
-						{
-							thisDialog.find("#text-nochange").html(system.lang["public"]["not-found"]).fadeInAndOut();
+					,function(result){
+						if (!result) {
+							button.linkbutton({iconCls:icon,disabled:false});
+							thisDialog.find("#replaceTracker-button-cancel").linkbutton({disabled:false});
+							thisDialog.find("#text-nochange").html(system.lang.error["data-post-error"]).fadeInAndOut();
 							return;
 						}
 
-						if (ids==null)
-						{
-							thisDialog.find("#text-nochange").html(system.lang.dialog["error"]["data-error"]).fadeInAndOut();
+						if (result.totalGroups > 0) {
+							var percent = parseInt((result.completedGroups / result.totalGroups) * 100, 10);
+							progressbar.progressbar('setValue', percent);
+						}
+						progressText.text(result.completedTorrents + " / " + result.totalTorrents);
+
+						if (result.status == "empty") {
+							button.linkbutton({iconCls:icon,disabled:false});
+							thisDialog.find("#replaceTracker-button-cancel").linkbutton({disabled:false});
+							thisDialog.find("#text-nochange").html(system.lang["public"]["not-found"]).fadeInAndOut();
+							progressRow.hide();
 							return;
 						}
-						
-						system.reloadTorrentBaseInfos(ids);						
-						thisDialog.dialog("close");
+
+						if (result.status == "error") {
+							button.linkbutton({iconCls:icon,disabled:false});
+							thisDialog.find("#replaceTracker-button-cancel").linkbutton({disabled:false});
+							thisDialog.find("#text-nochange").html(system.lang.error["data-post-error"] + (result.errorMessage ? (": " + result.errorMessage) : "")).fadeInAndOut();
+							return;
+						}
+
+						if (result.status == "done") {
+							button.linkbutton({iconCls:icon,disabled:false});
+							thisDialog.find("#replaceTracker-button-cancel").linkbutton({disabled:false});
+							progressbar.progressbar('setValue', 100);
+							progressText.text(result.completedTorrents + " / " + result.totalTorrents);
+							system.reloadTorrentBaseInfos(result.ids);
+							thisDialog.dialog("close");
+						}
 					}
 				);
 			}

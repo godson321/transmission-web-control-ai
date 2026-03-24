@@ -1,0 +1,138 @@
+﻿<div class="easyui-layout" data-options="fit:true" style="width:100%;height:100%;">
+	<div data-options="region:'center'" style="padding:8px;border:0px;">
+		<div class="dialog" style="width:100%;height:100%;">
+			<div id="batch-rename-summary" class="tip" style="margin-bottom:10px;"></div>
+			<table style="width:100%;margin-bottom:8px;">
+				<tr>
+					<td width="100%" class="title" style="text-align:left;"><span system-lang="dialog['torrent-rename']['oldname']"></span></td>
+				</tr>
+			</table>
+			<div id="batch-rename-list" style="height:180px;overflow:auto;border:1px solid #ddd;padding:6px;background:#fff;"></div>
+			<table style="width:100%;margin-top:14px;">
+				<tr>
+					<td width="20%" class="title"><span system-lang="dialog['torrent-rename']['newname']"></span></td>
+					<td width="80%">
+						<input type="text" id="batch-rename-newname" style="width:98%;" />
+					</td>
+				</tr>
+			</table>
+		</div>
+	</div>
+	<div data-options="region:'south',border:false" style="text-align:right;padding:6px;">
+		<div id="batch-rename-progress-wrap" style="display:none;margin-bottom:8px;text-align:left;">
+			<div id="batch-rename-progressbar" class="easyui-progressbar" style="width:100%;"></div>
+			<div id="batch-rename-progress-text" style="margin-top:6px;color:#666;"></div>
+		</div>
+		<span id="batch-rename-text-infos" style="display:none;" system-lang="['public']['text-nochange']"></span>
+		<a id="batch-rename-button-ok" class="easyui-linkbutton" data-options="iconCls:'icon-ok',plain:true" href="javascript:void(0);" system-lang="dialog['public']['button-ok']"></a>
+		<a id="batch-rename-button-cancel" class="easyui-linkbutton" data-options="iconCls:'icon-cancel',plain:true" href="javascript:void(0);" system-lang="dialog['public']['button-cancel']"></a>
+	</div>
+</div>
+<script type="text/javascript">
+	(function(thisDialog){
+		system.resetLangText(thisDialog);
+
+		var ids = thisDialog.data("ids") || [];
+		var torrents = [];
+		for (var i = 0; i < ids.length; i++) {
+			var torrent = transmission.torrents.all[ids[i]];
+			if (torrent) {
+				torrents.push(torrent);
+			}
+		}
+
+		if (torrents.length == 0) {
+			thisDialog.dialog("close");
+			return;
+		}
+
+		var summary = system.lang.system.status.checked.replace("%n", torrents.length);
+		thisDialog.find("#batch-rename-summary").text(summary);
+		var list = thisDialog.find("#batch-rename-list");
+		for (var index = 0; index < torrents.length; index++) {
+			$('<div style="padding:4px 0;border-bottom:1px solid #f0f0f0;word-break:break-all;"/>')
+				.text((index + 1) + '. ' + torrents[index].name)
+				.appendTo(list);
+		}
+
+		thisDialog.find("#batch-rename-newname").val(torrents[0].name).focus().select();
+
+		thisDialog.find("#batch-rename-button-ok").click(function() {
+			var button = $(this);
+			var newName = $.trim(thisDialog.find("#batch-rename-newname").val());
+			var tasks = [];
+			for (var i = 0; i < torrents.length; i++) {
+				if (torrents[i].name != newName) {
+					tasks.push({
+						id: torrents[i].id,
+						newName: newName
+					});
+				}
+			}
+
+			if (!newName || tasks.length == 0) {
+				thisDialog.find("#batch-rename-text-infos").fadeInAndOut();
+				return;
+			}
+
+			if (confirm(system.lang["public"]["text-confirm"]) == false) {
+				return;
+			}
+
+			var icon = button.linkbutton("options").iconCls;
+			var cancel = thisDialog.find("#batch-rename-button-cancel");
+			var progressbar = thisDialog.find("#batch-rename-progressbar");
+			var progressText = thisDialog.find("#batch-rename-progress-text");
+			var successIds = [];
+			var failedCount = 0;
+			var current = 0;
+
+			thisDialog.find("#batch-rename-progress-wrap").show();
+			button.linkbutton({disabled:true,iconCls:"icon-loading"});
+			cancel.linkbutton({disabled:true});
+			progressbar.progressbar({value:0});
+			progressText.text("0 / " + tasks.length);
+
+			function finishBatch() {
+				button.linkbutton({iconCls:icon,disabled:false});
+				cancel.linkbutton({disabled:false});
+				progressbar.progressbar("setValue", 100);
+				progressText.text(tasks.length + " / " + tasks.length);
+				if (successIds.length > 0) {
+					system.reloadTorrentBaseInfos(successIds, ["name"]);
+				}
+				if (failedCount > 0) {
+					thisDialog.find("#batch-rename-text-infos").html(system.lang["error"]["rename-error"] + " (" + failedCount + ")").show();
+					return;
+				}
+				thisDialog.dialog("close");
+			}
+
+			function runNext() {
+				if (current >= tasks.length) {
+					finishBatch();
+					return;
+				}
+				var task = tasks[current];
+				transmission.renameTorrent(task.id, "", task.newName, function(data){
+					current++;
+					var percent = parseInt((current / tasks.length) * 100, 10);
+					progressbar.progressbar("setValue", percent);
+					progressText.text(current + " / " + tasks.length);
+					if (data && data.result == "success") {
+						successIds.push(task.id);
+					} else {
+						failedCount++;
+					}
+					runNext();
+				});
+			}
+
+			runNext();
+		});
+
+		thisDialog.find("#batch-rename-button-cancel").click(function() {
+			thisDialog.dialog("close");
+		});
+	})($("#dialog-torrent-batchRename"));
+</script>
