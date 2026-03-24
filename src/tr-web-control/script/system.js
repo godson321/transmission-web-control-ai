@@ -92,6 +92,10 @@ var system = {
 		servers: false,
 		folders: false
 	},
+	pendingDeferredNavRefresh: {
+		servers: false,
+		folders: false
+	},
 	// Current data directory used for quick save path selection
 	currentListDir: "",
 	/**
@@ -1797,30 +1801,42 @@ var system = {
 			this.panel.left.tree("remove", children[i].target);
 		}
 	},
+	setServersNodeLoadingState: function (loading) {
+		var text = this.lang.tree.servers;
+		if (loading) {
+			text += " <span class='nav-torrents-number'>(" + this.lang.tree.status.loading + ")</span>";
+		}
+		this.updateTreeNodeText("servers", text, "iconfont tr-icon-servers");
+	},
 	refreshDeferredNavNode: function (node) {
 		if (!node) {
 			return;
 		}
-		if (node.id == "servers" && this.navTreeDirty.servers) {
+		if (node.id == "servers") {
 			if (!transmission.options.getTarckers) {
 				transmission.options.getTarckers = true;
-				this.reloadTorrentBaseInfos();
+			}
+			this.navTreeDirty.servers = false;
+			this.setServersNodeLoadingState(true);
+			if (this.reloading) {
+				this.pendingDeferredNavRefresh.servers = true;
 				return;
 			}
-			this.clearTreeChildren("servers");
-			this.resetNavServers({ trackers: {} });
-			this.navTreeDirty.servers = false;
+			this.pendingDeferredNavRefresh.servers = false;
+			this.reloadTorrentBaseInfos();
 			return;
 		}
-		if (node.id == "folders" && this.navTreeDirty.folders) {
+		if (node.id == "folders") {
 			if (!transmission.options.getFolders) {
 				transmission.options.getFolders = true;
-				this.reloadTorrentBaseInfos();
+			}
+			this.navTreeDirty.folders = false;
+			if (this.reloading) {
+				this.pendingDeferredNavRefresh.folders = true;
 				return;
 			}
-			this.clearTreeChildren("folders");
-			this.loadFolderList({});
-			this.navTreeDirty.folders = false;
+			this.pendingDeferredNavRefresh.folders = false;
+			this.reloadTorrentBaseInfos();
 		}
 	},
 	// refresh the tree
@@ -1830,6 +1846,15 @@ var system = {
 		this.resetNavStatistics();
 		this.resetNavFolders(oldInfos);
 		this.resetNavLabels();
+
+		if (this.pendingDeferredNavRefresh.servers || this.pendingDeferredNavRefresh.folders) {
+			var pendingNodeId = (this.pendingDeferredNavRefresh.servers ? "servers" : "folders");
+			this.pendingDeferredNavRefresh.servers = false;
+			this.pendingDeferredNavRefresh.folders = false;
+			setTimeout(function () {
+				system.refreshDeferredNavNode({ id: pendingNodeId });
+			}, 0);
+		}
 
 		// FF browser displays the total size, will be moved down a row, so a separate treatment
 		// 新版本已无此问题
@@ -1969,7 +1994,6 @@ var system = {
 		
 		if (serversNode) {
 			var serversNode_collapsed = serversNode.state;
-			this.removeTreeNode("servers-loading");
 		} else {
 			this.appendTreeNode(null, [{
 				id: "servers",
@@ -1985,9 +2009,12 @@ var system = {
 		var shouldRenderServers = this.hasPendingServerSelection() || this.isServerNodeSelected() || (serversNode && serversNode.state == "open") || (BTServersNode && BTServersNode.state == "open");
 		if (!shouldRenderServers) {
 			this.navTreeDirty.servers = true;
+			this.setServersNodeLoadingState(false);
 			return;
 		}
 		this.navTreeDirty.servers = false;
+		this.setServersNodeLoadingState(false);
+		this.removeTreeNode("servers-loading");
 
 		var datas = new Array();
 
