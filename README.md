@@ -8,10 +8,10 @@
 </p>
 
 ----
-## [English Introduction](https://github.com/ronggang/transmission-web-control/wiki)
 
 ## 关于
-原项目已不维护，用AI修复了一些问题和增加一些新功能
+原项目已不维护，用AI修复了一些问题和增加一些新功能，下载本地后直接替换原文件
+## 修复和优化清单
 - 1、优化了大量种子时候的加载逻辑，提高相应速度
 - 2、修复批量替换种子服务器无效的BUG
 - 3、新增批量重命名多个种子功能
